@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Color Guide Builder</title>
+<style>
+  :root{
+    --bg:#ececec;
+    --panel:#ffffff;
+    --ink:#222;
+    --muted:#6d6d6d;
+    --line:#cfcfcf;
+    --accent:#2b6cb0;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Inter,Segoe UI,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+  }
+  .app{
+    min-height:100vh;
+    display:grid;
+    grid-template-columns:340px 1fr;
+    gap:16px;
+    padding:16px;
+  }
+  .sidebar,.workspace{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    box-shadow:0 4px 16px rgba(0,0,0,.07);
+  }
+  .sidebar{
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    min-height:calc(100vh - 32px);
+  }
+  h1{font-size:22px;margin:0 0 6px}
+  .sub{font-size:13px;color:var(--muted);line-height:1.4;margin-bottom:14px}
+  .dropzone{
+    border:2px dashed #b9b9b9;
+    border-radius:10px;
+    padding:28px 16px;
+    text-align:center;
+    cursor:pointer;
+    background:#fafafa;
+    transition:.2s;
+  }
+  .dropzone.drag{border-color:var(--accent);background:#eef5ff}
+  .dropzone strong{display:block;margin-bottom:6px}
+  input[type=file]{display:none}
+
+  .recipe-controls{
+    margin:12px 0 2px;
+    display:grid;
+    gap:6px;
+  }
+  .recipe-controls label{font-size:13px}
+  .recipe-controls select{
+    width:100%;
+    border:1px solid #bfc4ca;
+    border-radius:8px;
+    padding:9px 10px;
+    background:#fff;
+    color:#222;
+    font:inherit;
+  }
+  .recipe-note{
+    color:#666;
+    font-size:11px;
+    line-height:1.35;
+  }
+  .auto-pick-settings{
+    display:grid;
+    grid-template-columns:1fr 120px;
+    gap:8px;
+    align-items:center;
+    margin-top:2px;
+  }
+  .auto-pick-settings label{font-size:12px}
+  .auto-pick-settings select{
+    width:100%;
+    border:1px solid #bfc4ca;
+    border-radius:8px;
+    padding:7px 8px;
+    background:#fff;
+    color:#222;
+    font:inherit;
+  }
+
+  .toolbar{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin:12px 0;
+  }
+  button{
+    border:1px solid #bfc4ca;
+    background:#fff;
+    color:#222;
+    border-radius:8px;
+    padding:10px 12px;
+    font-weight:650;
+    cursor:pointer;
+  }
+  button:hover{background:#f4f6f8}
+  button.primary{background:#222;color:#fff;border-color:#222}
+  button.danger{color:#9b1c1c}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .guide-title{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin:4px 0 8px;
+  }
+  .guide-title h2{font-size:15px;margin:0}
+  .count{font-size:12px;color:var(--muted)}
+  .swatches{
+    overflow:auto;
+    flex:1;
+    padding-right:3px;
+  }
+  .swatch{
+    display:grid;
+    grid-template-columns:52px 1fr 34px 34px;
+    min-height:82px;
+    cursor:grab;
+    user-select:none;
+    border:1px solid rgba(0,0,0,.12);
+    border-radius:9px;
+    overflow:hidden;
+    margin-bottom:8px;
+    background:#fff;
+  }
+  .num{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:25px;
+    font-weight:800;
+    background:transparent;
+    text-shadow:0 1px 2px rgba(0,0,0,.35);
+  }
+  .swatch-info{
+    padding:8px 10px;
+    font-size:11px;
+    line-height:1.28;
+    background:#fff;
+  }
+  .swatch-info b{font-size:13px}
+  .paint-analysis{
+    display:none;
+    margin-top:6px;
+    padding-top:6px;
+    border-top:1px solid rgba(0,0,0,.12);
+    font-size:10px;
+    line-height:1.35;
+  }
+  body.show-analysis .paint-analysis{display:block}
+  .material-select{
+    width:100%;
+    margin-top:5px;
+    padding:3px 5px;
+    border:1px solid rgba(0,0,0,.22);
+    border-radius:4px;
+    background:rgba(255,255,255,.9);
+    font-size:10px;
+  }
+  .recipe-label{
+    display:inline-block;
+    margin-top:4px;
+    font-size:9px;
+    font-weight:800;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    opacity:.7;
+  }
+  .swatch.dragging{
+    opacity:.45;
+    cursor:grabbing;
+  }
+  .swatch.drop-before{
+    box-shadow:0 -4px 0 #2b6cb0;
+  }
+  .swatch.drop-after{
+    box-shadow:0 4px 0 #2b6cb0;
+  }
+  .drag-handle{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-left:1px solid rgba(0,0,0,.1);
+    background:#fff;
+    font-size:18px;
+    font-weight:800;
+    color:#555;
+    cursor:grab;
+  }
+  .swatch button{
+    border:0;
+    border-left:1px solid rgba(0,0,0,.1);
+    border-radius:0;
+    padding:0;
+    background:#fff;
+    font-size:18px;
+  }
+  .workspace{
+    padding:12px;
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+  }
+  .workspace-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .workspace-head .hint{font-size:13px;color:var(--muted)}
+  .zoom-controls{display:flex;gap:6px}
+  .canvas-wrap{
+    position:relative;
+    flex:1;
+    min-height:520px;
+    background:
+      linear-gradient(45deg,#f4f4f4 25%,transparent 25%),
+      linear-gradient(-45deg,#f4f4f4 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#f4f4f4 75%),
+      linear-gradient(-45deg,transparent 75%,#f4f4f4 75%);
+    background-size:24px 24px;
+    background-position:0 0,0 12px,12px -12px,-12px 0;
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:auto;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    padding:14px;
+  }
+  canvas{
+    display:block;
+    max-width:none;
+    border-radius:4px;
+    box-shadow:0 2px 12px rgba(0,0,0,.18);
+    cursor:crosshair;
+    background:#fff;
+  }
+  .empty{
+    margin:auto;
+    text-align:center;
+    color:#7a7a7a;
+    max-width:360px;
+    line-height:1.55;
+  }
+  .magnifier{
+    position:fixed;
+    width:132px;
+    height:132px;
+    border:4px solid #fff;
+    outline:1px solid #222;
+    border-radius:50%;
+    pointer-events:none;
+    display:none;
+    z-index:20;
+    image-rendering:pixelated;
+    background:#fff;
+  }
+  .footer-note{
+    font-size:11px;
+    color:#777;
+    margin-top:10px;
+    line-height:1.4;
+  }
+
+  .export-modal{
+    position:fixed;
+    inset:0;
+    z-index:1000;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    background:rgba(0,0,0,.72);
+  }
+  .export-modal.open{display:flex}
+  .export-dialog{
+    width:min(1050px,96vw);
+    max-height:94vh;
+    display:flex;
+    flex-direction:column;
+    background:#fff;
+    border-radius:14px;
+    box-shadow:0 20px 70px rgba(0,0,0,.45);
+    overflow:hidden;
+  }
+  .export-dialog-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    padding:14px 16px;
+    border-bottom:1px solid #ddd;
+  }
+  .export-dialog-head h3{margin:0;font-size:17px}
+  .export-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .export-preview-wrap{
+    overflow:auto;
+    padding:16px;
+    background:#d9d9d9;
+    flex:1;
+  }
+  .export-preview-wrap canvas{
+    display:block;
+    width:min(100%,900px);
+    height:auto;
+    margin:0 auto;
+    background:#fff;
+    box-shadow:0 2px 14px rgba(0,0,0,.25);
+    cursor:context-menu;
+  }
+  .fullscreen-export{
+    position:fixed;
+    inset:0;
+    z-index:1100;
+    display:none;
+    overflow:auto;
+    padding:24px;
+    background:#777;
+  }
+  .fullscreen-export.open{display:block}
+  .fullscreen-export-bar{
+    position:sticky;
+    top:0;
+    z-index:2;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:10px;
+    margin:0 auto 14px;
+    max-width:1100px;
+    background:#fff;
+    border-radius:10px;
+    box-shadow:0 2px 12px rgba(0,0,0,.25);
+  }
+  .fullscreen-export canvas{
+    display:block;
+    max-width:1100px;
+    width:100%;
+    height:auto;
+    margin:0 auto;
+    background:#fff;
+    box-shadow:0 2px 16px rgba(0,0,0,.3);
+  }
+  .export-help{
+    padding:10px 16px 14px;
+    margin:0;
+    color:#555;
+    font-size:12px;
+    border-top:1px solid #e4e4e4;
+  }
+
+  @media(max-width:850px){
+    .app{grid-template-columns:1fr}
+    .sidebar{min-height:auto}
+    .workspace{min-height:65vh}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <h1>Paint Mix Helper</h1>
+    <div class="sub">Upload a reference, let Auto Pick identify the major distinct color regions, or sample manually, then receive subject-aware paint recipes.</div>
+
+    <label class="dropzone" id="dropzone">
+      <strong>Drag and drop an image here</strong>
+      <span>or click to upload</span>
+      <input id="fileInput" type="file" accept="image/*" />
+    </label>
+
+    <div class="recipe-controls">
+      <label for="paletteSelect"><b>Paint palette</b></label>
+      <select id="paletteSelect">
+        <option value="golden">Golden-style acrylic palette</option>
+        <option value="basic">Basic artist palette</option>
+      </select>
+
+      <label for="sceneSelect"><b>Scene knowledge</b></label>
+      <select id="sceneSelect">
+        <option value="landscape">Landscape — sky/clouds + ground</option>
+        <option value="portrait">Portrait / skin</option>
+        <option value="leather">Leather products</option>
+        <option value="water">Water scene</option>
+        <option value="stilllife">Still life / objects</option>
+        <option value="coloronly">Color only — no subject assumptions</option>
+      </select>
+      <div class="auto-pick-settings">
+        <label for="autoPickCount"><b>Auto-pick count</b></label>
+        <select id="autoPickCount">
+          <option value="8">8 colors</option>
+          <option value="10">10 colors</option>
+          <option value="12" selected>12 colors</option>
+          <option value="14">14 colors</option>
+          <option value="16">16 colors</option>
+          <option value="20">20 colors</option>
+        </select>
+      </div>
+      <div class="recipe-note">The engine first identifies what the color belongs to, then uses a curated painter’s mixing strategy. Auto Pick scans the full image for large, visually distinct color regions.</div>
+    </div>
+
+    <div class="toolbar">
+      <button id="undoBtn" disabled>Undo</button>
+      <button id="clearBtn" class="danger" disabled>Clear dots</button>
+      <button id="exportPngBtn" class="primary" disabled>Export Pages</button>
+      <button id="printBtn" disabled>Print 2 Pages / PDF</button>
+      <button id="autoPickBtn" disabled>Auto pick colors</button>
+      <button id="autoArrangeBtn" disabled>Auto arrange</button>
+      <button id="analysisToggleBtn" disabled>Show analysis</button>
+    </div>
+
+    <div id="exportStatus" style="min-height:18px;font-size:12px;color:#555;margin:-2px 0 8px;"></div>
+
+    <div class="guide-title">
+      <div>
+        <h2>Selected colors</h2>
+        <div style="font-size:11px;color:#6d6d6d;margin-top:3px;">
+          Drag cards to group similar colors. Numbers update automatically.
+        </div>
+      </div>
+      <span class="count" id="count">0 colors</span>
+    </div>
+    <div class="swatches" id="swatches"></div>
+    <div class="footer-note">
+      Click anywhere on the image to sample the exact source-image pixel color. Export creates two separate pages: Page 1 is the white sample-dot placement map; Page 2 is a compact color-mix chart.
+    </div>
+  </aside>
+
+  <main class="workspace">
+    <div class="workspace-head">
+      <div class="hint" id="hint">Upload an image to begin.</div>
+      <div class="zoom-controls">
+        <button id="zoomOutBtn" disabled>−</button>
+        <button id="fitBtn" disabled>Fit</button>
+        <button id="zoomInBtn" disabled>+</button>
+      </div>
+    </div>
+    <div class="canvas-wrap" id="canvasWrap">
+      <div class="empty" id="empty">
+        <strong>Your image will appear here.</strong><br>
+        Click the canvas to place numbered color samples.
+      </div>
+      <canvas id="canvas" hidden></canvas>
+    </div>
+  </main>
+</div>
+
+
+<div class="export-modal" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+  <div class="export-dialog">
+    <div class="export-dialog-head">
+      <h3 id="exportModalTitle">Two-page export preview</h3>
+      <div class="export-actions">
+        <button id="savePage1Btn" class="primary" type="button">Save Page 1</button>
+        <button id="savePage2Btn" class="primary" type="button">Save Page 2</button>
+        <button id="openPngBtn" type="button">Open image</button>
+        <button id="closeExportBtn" type="button">Close</button>
+      </div>
+    </div>
+    <div class="export-preview-wrap">
+      <canvas id="exportPreviewCanvas" aria-label="Page 1 sample-dot preview"></canvas>
+      <div style="height:18px"></div>
+      <canvas id="exportPreviewCanvas2" aria-label="Page 2 color-mix chart preview"></canvas>
+    </div>
+    <p class="export-help">
+      Page 1 contains the positioned sample dots. Page 2 contains the separate color-mix chart.
+      Save each PNG individually, or use <b>Print 2 Pages / PDF</b> from the main screen.
+    </p>
+  </div>
+</div>
+
+<div class="fullscreen-export" id="fullscreenExport">
+  <div class="fullscreen-export-bar">
+    <span><b>Color placement guide</b> — right-click the canvas and choose “Save image as” if your browser blocks downloads.</span>
+    <button id="closeFullscreenBtn" type="button">Close</button>
+  </div>
+  <canvas id="fullscreenCanvas"></canvas>
+</div>
+
+<canvas class="magnifier" id="magnifier" width="132" height="132"></canvas>
+
+<script>
+(() => {
+  const fileInput = document.getElementById('fileInput');
+  const dropzone = document.getElementById('dropzone');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d', {willReadFrequently:true});
+  // Keep an untouched, full-resolution copy of the uploaded image for sampling.
+  // This prevents existing dots, labels, scaling, or overlays from affecting colors.
+  const sourceCanvas = document.createElement('canvas');
+  const sourceCtx = sourceCanvas.getContext('2d', {willReadFrequently:true});
+  const canvasWrap = document.getElementById('canvasWrap');
+  const empty = document.getElementById('empty');
+  const swatchesEl = document.getElementById('swatches');
+  const countEl = document.getElementById('count');
+  const hint = document.getElementById('hint');
+  const undoBtn = document.getElementById('undoBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const exportPngBtn = document.getElementById('exportPngBtn');
+  const printBtn = document.getElementById('printBtn');
+  const autoPickBtn = document.getElementById('autoPickBtn');
+  const autoPickCount = document.getElementById('autoPickCount');
+  const autoArrangeBtn = document.getElementById('autoArrangeBtn');
+  const analysisToggleBtn = document.getElementById('analysisToggleBtn');
+  const zoomInBtn = document.getElementById('zoomInBtn');
+  const zoomOutBtn = document.getElementById('zoomOutBtn');
+  const fitBtn = document.getElementById('fitBtn');
+  const magnifier = document.getElementById('magnifier');
+  const exportStatus = document.getElementById('exportStatus');
+  const paletteSelect = document.getElementById('paletteSelect');
+  const sceneSelect = document.getElementById('sceneSelect');
+  const exportModal = document.getElementById('exportModal');
+  const exportPreviewCanvas = document.getElementById('exportPreviewCanvas');
+  const fullscreenExport = document.getElementById('fullscreenExport');
+  const fullscreenCanvas = document.getElementById('fullscreenCanvas');
+  const closeFullscreenBtn = document.getElementById('closeFullscreenBtn');
+  const savePage1Btn = document.getElementById('savePage1Btn');
+  const savePage2Btn = document.getElementById('savePage2Btn');
+  const exportPreviewCanvas2 = document.getElementById('exportPreviewCanvas2');
+  const openPngBtn = document.getElementById('openPngBtn');
+  const closeExportBtn = document.getElementById('closeExportBtn');
+  let currentExportCanvas = null;
+  let currentExportCanvas2 = null;
+  let currentExportFilename = 'sample-dots.png';
+  let currentExportFilename2 = 'color-mix-chart.png';
+
+  const mctx = magnifier.getContext('2d');
+
+  let image = null;
+  let imageName = 'Color Guide';
+  let samples = [];
+  let zoom = 1;
+  let draggedSampleIndex = null;
+
+  function loadFile(file){
+    if(!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        image = img;
+        imageName = file.name.replace(/\.[^.]+$/,'') || 'Color Guide';
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        sourceCanvas.width = img.naturalWidth;
+        sourceCanvas.height = img.naturalHeight;
+        sourceCtx.clearRect(0,0,sourceCanvas.width,sourceCanvas.height);
+        sourceCtx.drawImage(img,0,0);
+        samples = [];
+        fitCanvas();
+        render();
+        updateUI();
+        empty.hidden = true;
+        canvas.hidden = false;
+        hint.textContent = 'Click the image to add numbered color samples.';
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files && e.target.files[0];
+    if(file) loadFile(file);
+    e.target.value = '';
+  });
+  dropzone.setAttribute('tabindex','0');
+  dropzone.setAttribute('role','button');
+  dropzone.addEventListener('keydown', e => {
+    if(e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  ['dragenter','dragover'].forEach(type => dropzone.addEventListener(type,e=>{
+    e.preventDefault(); dropzone.classList.add('drag');
+  }));
+  ['dragleave','drop'].forEach(type => dropzone.addEventListener(type,e=>{
+    e.preventDefault(); dropzone.classList.remove('drag');
+  }));
+  dropzone.addEventListener('drop', e => {
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(file) loadFile(file);
+  });
+
+  function fitCanvas(){
+    if(!image) return;
+    const maxW = Math.max(280, canvasWrap.clientWidth - 32);
+    const maxH = Math.max(360, canvasWrap.clientHeight - 32);
+    zoom = Math.min(maxW/image.naturalWidth, maxH/image.naturalHeight, 1);
+    applyZoom();
+  }
+  function applyZoom(){
+    canvas.style.width = (canvas.width * zoom) + 'px';
+    canvas.style.height = (canvas.height * zoom) + 'px';
+  }
+
+  function drawRoundedRect(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.roundRect(x,y,w,h,r);
+  }
+
+  function contrastColor(r,g,b){
+    const luminance=(0.299*r+0.587*g+0.114*b)/255;
+    return luminance>0.58?'#111':'#fff';
+  }
+
+  function render(){
+    if(!image) return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(image,0,0);
+    // Larger, borderless markers that display the exact sampled RGB value.
+    const radius = Math.max(22, Math.round(Math.min(canvas.width,canvas.height)*0.032));
+    samples.forEach((s,i)=>{
+      const n=i+1;
+      ctx.save();
+      ctx.fillStyle=`rgb(${s.r},${s.g},${s.b})`;
+      ctx.beginPath();
+      ctx.arc(s.x,s.y,radius,0,Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle=contrastColor(s.r,s.g,s.b);
+      ctx.shadowColor=contrastColor(s.r,s.g,s.b)==='#fff'?'rgba(0,0,0,.55)':'rgba(255,255,255,.55)';
+      ctx.shadowBlur=Math.max(2,radius*0.08);
+      ctx.font=`800 ${Math.round(radius*0.88)}px Arial`;
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText(n,s.x,s.y+1);
+      ctx.restore();
+    });
+  }
+
+
+  const PALETTES = {
+    golden: [
+      {name:'Titanium White', rgb:[245,244,236]},
+      {name:'Carbon Black', rgb:[20,22,22]},
+      {name:'Teal', rgb:[35,111,118]},
+      {name:'Burnt Umber Light', rgb:[112,69,45]},
+      {name:'Hansa Yellow Opaque', rgb:[244,198,47]},
+      {name:'Naples Yellow Hue', rgb:[239,198,116]},
+      {name:'Azo Gold', rgb:[207,132,24]},
+      {name:'Pyrrole Orange', rgb:[229,77,37]},
+      {name:'Pyrrole Red', rgb:[195,40,45]},
+      {name:'Quinacridone Magenta', rgb:[154,33,92]},
+      {name:'Permanent Violet Dark', rgb:[67,39,88]},
+      {name:'Raw Sienna', rgb:[171,119,62]},
+      {name:'Cadmium Yellow Medium', rgb:[245,177,24]},
+      {name:'Phthalo Green', rgb:[0,93,73]},
+      {name:'Ultramarine Blue', rgb:[40,57,128]}
+    ],
+    basic: [
+      {name:'Titanium White', rgb:[245,244,236]},
+      {name:'Mars Black', rgb:[20,22,22]},
+      {name:'Ultramarine Blue', rgb:[40,57,128]},
+      {name:'Phthalo Green', rgb:[0,93,73]},
+      {name:'Cadmium Yellow', rgb:[245,177,24]},
+      {name:'Yellow Ochre', rgb:[190,139,65]},
+      {name:'Burnt Sienna', rgb:[143,72,43]},
+      {name:'Alizarin Crimson', rgb:[126,31,54]},
+      {name:'Primary Red', rgb:[205,46,50]}
+    ]
+  };
+
+  function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+
+  function colorStats(r,g,b){
+    const [h,s,l]=rgbToHsl(r,g,b);
+    const value=Math.round((Math.max(r,g,b)/255)*100);
+    const chroma=Math.round((Math.max(r,g,b)-Math.min(r,g,b))/255*100);
+    let family='Red';
+    if(h<15 || h>=345) family='Red';
+    else if(h<45) family='Orange';
+    else if(h<70) family='Yellow';
+    else if(h<155) family='Green';
+    else if(h<195) family='Teal';
+    else if(h<250) family='Blue';
+    else if(h<290) family='Violet';
+    else family='Magenta';
+
+    const temperature = ['Orange','Yellow','Red','Magenta'].includes(family) ? 'Warm' :
+      ['Teal','Blue','Violet'].includes(family) ? 'Cool' : (h<105?'Warm':'Cool');
+
+    return {h,s,l,value,chroma,family,temperature};
+  }
+
+  function normalizeRecipe(parts){
+    parts=parts.filter(p=>p.pct>=1);
+    const total=parts.reduce((sum,p)=>sum+p.pct,0) || 1;
+    parts=parts.map(p=>({name:p.name,pct:Math.round(p.pct*100/total)}));
+    const diff=100-parts.reduce((sum,p)=>sum+p.pct,0);
+    if(parts.length) parts[0].pct+=diff;
+    return parts.sort((a,b)=>b.pct-a.pct);
+  }
+
+  function pigmentNames(){
+    const basic=paletteSelect.value==='basic';
+    return basic ? {
+      white:'Titanium White', black:'Mars Black', teal:'Phthalo Green',
+      blue:'Ultramarine Blue', yellow:'Cadmium Yellow', warmYellow:'Yellow Ochre',
+      orange:'Burnt Sienna', red:'Primary Red', magenta:'Alizarin Crimson',
+      violet:'Ultramarine Blue'
+    } : {
+      white:'Titanium White', black:'Carbon Black', teal:'Teal',
+      blue:'Ultramarine Blue', yellow:'Hansa Yellow Opaque',
+      warmYellow:'Naples Yellow Hue', orange:'Pyrrole Orange',
+      earthOrange:'Raw Sienna', red:'Pyrrole Red',
+      magenta:'Quinacridone Magenta', violet:'Permanent Violet Dark',
+      green:'Phthalo Green', gold:'Azo Gold'
+    };
+  }
+
+  function huePigment(stats,n){
+    switch(stats.family){
+      case 'Red': return n.red;
+      case 'Orange': return n.orange;
+      case 'Yellow': return stats.s<45 ? n.warmYellow : n.yellow;
+      case 'Green': return n.green || n.teal;
+      case 'Teal': return n.teal;
+      case 'Blue': return n.blue;
+      case 'Violet': return n.violet;
+      case 'Magenta': return n.magenta;
+      default:return n.teal;
+    }
+  }
+
+  function complementPigment(stats,n){
+    switch(stats.family){
+      case 'Blue':
+      case 'Teal': return n.orange;
+      case 'Green': return n.red || n.orange;
+      case 'Yellow': return n.violet;
+      case 'Orange': return n.blue;
+      case 'Red': return n.green || n.teal;
+      case 'Violet':
+      case 'Magenta': return n.yellow;
+      default:return n.orange;
+    }
+  }
+
+  const MATERIAL_LABELS = {
+    auto:'Auto detect',
+    sky:'Sky / cloud',
+    grass:'Grass / wheat',
+    foliage:'Tree / foliage',
+    water:'Water',
+    rock:'Rock / earth',
+    leather:'Leather',
+    skin:'Skin',
+    object:'Neutral object'
+  };
+
+  function autoMaterial(sample){
+    if(sample.material && sample.material!=='auto') return sample.material;
+    const scene=sceneSelect.value;
+    if(scene==='portrait') return 'skin';
+    if(scene==='leather') return 'leather';
+    if(scene==='water') return sample.y/sourceCanvas.height < .55 ? 'sky' : 'water';
+    if(scene==='stilllife' || scene==='coloronly') return 'object';
+
+    // Landscape knowledge: upper image is normally sky/cloud; lower image is ground.
+    const yRatio=sourceCanvas.height ? sample.y/sourceCanvas.height : .5;
+    if(yRatio < .68) return 'sky';
+    return 'grass';
+  }
+
+  function mix(parts){ return normalizeRecipe(parts); }
+
+  function makePaintRecipe(sample){
+    const {r,g,b}=sample;
+    const st=colorStats(r,g,b);
+    const n=pigmentNames();
+    const material=autoMaterial(sample);
+    let primary=[], alternative=[], strategy='', confidence=88;
+
+    if(material==='sky'){
+      // Curated cloud/sky logic. No Pyrrole Orange for cool sky colors.
+      if(st.l < 31){
+        const black=clamp(70-st.s*.25,50,72);
+        const teal=clamp(8+st.s*.12,6,18);
+        primary=mix([
+          {name:n.black,pct:black},
+          {name:n.teal,pct:teal},
+          {name:n.blue,pct:100-black-teal}
+        ]);
+        alternative=mix([
+          {name:n.black,pct:black-7},
+          {name:n.teal,pct:teal+3},
+          {name:n.blue,pct:104-black-teal}
+        ]);
+        strategy=`Deep cloud: establish value with ${n.black}, then cool it with ${n.teal} and ${n.blue}.`;
+      }else if(st.family==='Blue' || st.family==='Teal' || st.s<30){
+        const white=clamp(58+st.l*.34-st.s*.10,68,91);
+        const teal=clamp(5+st.s*.10,5,13);
+        const earth=n.earthOrange || 'Burnt Umber Light';
+        primary=mix([
+          {name:n.white,pct:white},
+          {name:earth,pct:100-white-teal},
+          {name:n.teal,pct:teal}
+        ]);
+        alternative=mix([
+          {name:n.white,pct:white+2},
+          {name:n.warmYellow,pct:Math.max(3,100-white-teal-3)},
+          {name:n.teal,pct:teal+1}
+        ]);
+        strategy=`Cloud gray: build with ${n.white}, tint with ${n.teal}, and mute naturally with ${earth}.`;
+      }else{
+        const white=clamp(66+st.l*.28,72,94);
+        const warm=n.warmYellow;
+        primary=mix([
+          {name:n.white,pct:white},
+          {name:warm,pct:clamp((100-white)*.68,4,20)},
+          {name:n.earthOrange || n.orange,pct:100-white-clamp((100-white)*.68,4,20)}
+        ]);
+        alternative=mix([
+          {name:n.white,pct:white},
+          {name:n.gold || n.yellow,pct:100-white}
+        ]);
+        strategy=`Sunlit cloud: use ${n.white} as the body, then warm it with ${warm} and a small earth note.`;
+      }
+      confidence=92;
+    }else if(material==='grass'){
+      const light=st.l>58;
+      const yellow=n.gold || n.yellow;
+      const earth=n.earthOrange || n.warmYellow;
+      const darkener=st.l<33 ? n.black : n.teal;
+      primary=mix([
+        {name:yellow,pct:light?clamp(48+st.s*.2,48,70):clamp(26+st.s*.2,25,52)},
+        {name:n.teal,pct:light?clamp(8+st.s*.08,7,17):clamp(18+st.s*.12,17,34)},
+        {name:earth,pct:light?clamp(18-st.s*.05,8,18):clamp(25-st.s*.08,10,25)},
+        {name:darkener,pct:st.l<33?clamp(18-st.l*.25,5,14):0},
+        {name:n.white,pct:light?clamp(22-st.s*.08,5,22):0}
+      ]);
+      alternative=mix([
+        {name:n.yellow,pct:45},
+        {name:n.teal,pct:20},
+        {name:n.earthOrange || n.orange,pct:25},
+        {name:n.white,pct:10}
+      ]);
+      strategy=`Ground color: combine yellow and teal, then naturalize it with ${earth}; use white only for sunlit passages.`;
+    }else if(material==='water'){
+      const white=clamp(st.l*.75,5,78);
+      const blue=clamp(18+st.s*.32,18,48);
+      primary=mix([
+        {name:n.white,pct:white},
+        {name:n.teal,pct:100-white-blue},
+        {name:n.blue,pct:blue}
+      ]);
+      alternative=mix([
+        {name:n.white,pct:white},
+        {name:n.blue,pct:100-white}
+      ]);
+      strategy=`Water: use ${n.teal} and ${n.blue}; add ${n.white} for reflected light.`;
+    }else if(material==='foliage'){
+      primary=mix([
+        {name:n.teal,pct:38},
+        {name:n.yellow,pct:34},
+        {name:n.earthOrange || n.orange,pct:20},
+        {name:n.black,pct:st.l<30?8:0}
+      ]);
+      alternative=mix([
+        {name:n.green || n.teal,pct:50},
+        {name:n.warmYellow,pct:30},
+        {name:n.earthOrange || n.orange,pct:20}
+      ]);
+      strategy='Foliage: create green from yellow and teal, then break its intensity with an earth color.';
+    }else if(material==='leather'){
+      primary=mix([
+        {name:n.earthOrange || n.orange,pct:45},
+        {name:n.warmYellow,pct:25},
+        {name:n.red,pct:18},
+        {name:n.black,pct:st.l<35?12:3},
+        {name:n.white,pct:st.l>60?12:0}
+      ]);
+      alternative=mix([
+        {name:n.earthOrange || n.orange,pct:58},
+        {name:n.red,pct:22},
+        {name:n.black,pct:10},
+        {name:n.white,pct:10}
+      ]);
+      strategy='Leather: start with earth orange/brown, warm with red or ochre, then control value carefully.';
+    }else if(material==='skin'){
+      primary=mix([
+        {name:n.white,pct:clamp(35+st.l*.42,42,78)},
+        {name:n.warmYellow,pct:14},
+        {name:n.red,pct:12},
+        {name:n.earthOrange || n.orange,pct:12},
+        {name:n.teal,pct:3}
+      ]);
+      alternative=mix([
+        {name:n.white,pct:65},
+        {name:n.warmYellow,pct:18},
+        {name:n.red,pct:12},
+        {name:n.teal,pct:5}
+      ]);
+      strategy='Skin: build with white, warm yellow and red; use only a trace of teal to neutralize.';
+    }else if(material==='rock'){
+      primary=mix([
+        {name:n.white,pct:clamp(st.l*.65,8,70)},
+        {name:n.earthOrange || n.orange,pct:24},
+        {name:n.blue,pct:16},
+        {name:n.black,pct:st.l<35?12:3}
+      ]);
+      alternative=mix([
+        {name:n.warmYellow,pct:35},
+        {name:n.blue,pct:25},
+        {name:n.white,pct:30},
+        {name:n.black,pct:10}
+      ]);
+      strategy='Rock: use an earth pigment and blue as the neutral pair, then set value with white or black.';
+    }else{
+      // Color-only fallback, restrained and without blindly forcing orange.
+      const dominant=huePigment(st,n);
+      if(st.l<30){
+        primary=mix([
+          {name:n.black,pct:clamp(65-st.s*.2,45,70)},
+          {name:dominant,pct:35},
+          {name:n.blue,pct:20}
+        ]);
+      }else{
+        const white=clamp(st.l*.9,10,88);
+        primary=mix([
+          {name:n.white,pct:white},
+          {name:dominant,pct:100-white}
+        ]);
+      }
+      alternative=primary;
+      strategy='Neutral object: match value first, then add the nearest hue pigment without assuming a material.';
+      confidence=80;
+    }
+
+    return {
+      primary, alternative, confidence, material,
+      analysis:{
+        family:st.family,
+        temperature:st.temperature,
+        value:st.l<33?'Dark':st.l>72?'Light':'Mid-value',
+        chroma:st.s<25?'Muted':st.s>62?'High chroma':'Moderate chroma',
+        strategy
+      }
+    };
+  }
+
+  function recipeText(sample){
+    const result=makePaintRecipe(sample);
+    const primary=result.primary.map(p=>`${p.pct}% ${p.name}`).join('<br>');
+    const alternative=result.alternative.map(p=>`${p.pct}% ${p.name}`).join('<br>');
+    return `<span class="recipe-label">${MATERIAL_LABELS[result.material]} mix · ${result.confidence}% confidence</span><br>${primary}
+      <select class="material-select" data-material-index="${samples.indexOf(sample)}">
+        ${Object.entries(MATERIAL_LABELS).map(([value,label])=>`<option value="${value}" ${(sample.material||'auto')===value?'selected':''}>${label}</option>`).join('')}
+      </select>
+      <div class="paint-analysis">
+        <b>Alternative</b><br>${alternative}<br>
+        <b>Color read:</b> ${result.analysis.value}, ${result.analysis.chroma}, ${result.analysis.temperature} ${result.analysis.family}<br>
+        <b>Strategy:</b> ${result.analysis.strategy}
+      </div>`;
+  }
+
+  function rgbToHex(r,g,b){
+    return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
+  }
+  function rgbToHsl(r,g,b){
+    r/=255;g/=255;b/=255;
+    const max=Math.max(r,g,b),min=Math.min(r,g,b);
+    let h=0,s=0,l=(max+min)/2;
+    if(max!==min){
+      const d=max-min;
+      s=l>0.5?d/(2-max-min):d/(max+min);
+      switch(max){
+        case r:h=(g-b)/d+(g<b?6:0);break;
+        case g:h=(b-r)/d+2;break;
+        case b:h=(r-g)/d+4;break;
+      }
+      h/=6;
+    }
+    return [Math.round(h*360),Math.round(s*100),Math.round(l*100)];
+  }
+
+
+  function colorDistanceSq(a,b){
+    // Weighted RGB distance. Green gets slightly more weight because
+    // human vision is more sensitive to it.
+    const dr=a.r-b.r;
+    const dg=a.g-b.g;
+    const db=a.b-b.b;
+    return dr*dr*.30 + dg*dg*.59 + db*db*.11;
+  }
+
+  function regionVariance(centerX,centerY,radius){
+    const sx=Math.max(0,Math.round(centerX-radius));
+    const sy=Math.max(0,Math.round(centerY-radius));
+    const sw=Math.min(sourceCanvas.width-sx,radius*2+1);
+    const sh=Math.min(sourceCanvas.height-sy,radius*2+1);
+    const data=sourceCtx.getImageData(sx,sy,sw,sh).data;
+    let r=0,g=0,b=0,count=0;
+    for(let i=0;i<data.length;i+=4){
+      if(data[i+3]<20) continue;
+      r+=data[i]; g+=data[i+1]; b+=data[i+2]; count++;
+    }
+    if(!count) return {r:0,g:0,b:0,variance:Infinity};
+    r/=count; g/=count; b/=count;
+    let variance=0;
+    for(let i=0;i<data.length;i+=4){
+      if(data[i+3]<20) continue;
+      const dr=data[i]-r, dg=data[i+1]-g, db=data[i+2]-b;
+      variance += dr*dr*.30 + dg*dg*.59 + db*db*.11;
+    }
+    variance/=count;
+    return {r:Math.round(r),g:Math.round(g),b:Math.round(b),variance};
+  }
+
+  function autoPickColors(){
+    if(!image) return;
+
+    const desired=parseInt(autoPickCount.value,10) || 12;
+    const maxDim=140;
+    const scale=Math.min(1,maxDim/Math.max(sourceCanvas.width,sourceCanvas.height));
+    const w=Math.max(24,Math.round(sourceCanvas.width*scale));
+    const h=Math.max(24,Math.round(sourceCanvas.height*scale));
+
+    const scratch=document.createElement('canvas');
+    scratch.width=w;
+    scratch.height=h;
+    const sc=scratch.getContext('2d',{willReadFrequently:true});
+    sc.drawImage(sourceCanvas,0,0,w,h);
+    const data=sc.getImageData(0,0,w,h).data;
+
+    const points=[];
+    // Skip a thin border and heavily transparent pixels.
+    for(let y=2;y<h-2;y++){
+      for(let x=2;x<w-2;x++){
+        const i=(y*w+x)*4;
+        if(data[i+3]<220) continue;
+        const r=data[i],g=data[i+1],b=data[i+2];
+        points.push({
+          r,g,b,
+          x:x/scale,
+          y:y/scale
+        });
+      }
+    }
+    if(!points.length) return;
+
+    // K-means++ style initialization, seeded by the most common broad bins.
+    const binMap=new Map();
+    points.forEach(p=>{
+      const key=`${p.r>>4},${p.g>>4},${p.b>>4}`;
+      let bin=binMap.get(key);
+      if(!bin){
+        bin={count:0,r:0,g:0,b:0,x:0,y:0};
+        binMap.set(key,bin);
+      }
+      bin.count++;
+      bin.r+=p.r; bin.g+=p.g; bin.b+=p.b; bin.x+=p.x; bin.y+=p.y;
+    });
+
+    const bins=[...binMap.values()]
+      .map(bin=>({
+        count:bin.count,
+        r:bin.r/bin.count,
+        g:bin.g/bin.count,
+        b:bin.b/bin.count,
+        x:bin.x/bin.count,
+        y:bin.y/bin.count
+      }))
+      .sort((a,b)=>b.count-a.count);
+
+    const centers=[];
+    for(const candidate of bins){
+      if(centers.length>=desired) break;
+      const distinct=centers.every(c=>colorDistanceSq(candidate,c)>500);
+      if(distinct) centers.push({...candidate});
+    }
+
+    while(centers.length<desired && bins.length){
+      let best=null;
+      let bestScore=-1;
+      for(const candidate of bins){
+        const minDist=Math.min(...centers.map(c=>colorDistanceSq(candidate,c)));
+        const score=minDist*Math.sqrt(candidate.count);
+        if(score>bestScore){
+          bestScore=score;
+          best=candidate;
+        }
+      }
+      if(!best) break;
+      centers.push({...best});
+    }
+
+    // Refine clusters.
+    for(let iteration=0;iteration<8;iteration++){
+      const groups=centers.map(()=>({count:0,r:0,g:0,b:0,x:0,y:0,points:[]}));
+      points.forEach(p=>{
+        let bestIndex=0;
+        let bestDistance=Infinity;
+        centers.forEach((c,index)=>{
+          const d=colorDistanceSq(p,c);
+          if(d<bestDistance){
+            bestDistance=d;
+            bestIndex=index;
+          }
+        });
+        const g=groups[bestIndex];
+        g.count++;
+        g.r+=p.r; g.g+=p.g; g.b+=p.b; g.x+=p.x; g.y+=p.y;
+        if(g.points.length<250) g.points.push(p);
+      });
+
+      groups.forEach((g,index)=>{
+        if(!g.count) return;
+        centers[index]={
+          r:g.r/g.count,
+          g:g.g/g.count,
+          b:g.b/g.count,
+          x:g.x/g.count,
+          y:g.y/g.count,
+          count:g.count,
+          points:g.points
+        };
+      });
+    }
+
+    // Choose a real, spatially representative point for each cluster.
+    let picks=centers
+      .filter(c=>c.count && c.count>points.length*.004)
+      .map(c=>{
+        let representative=null;
+        let bestScore=Infinity;
+        const candidates=c.points && c.points.length ? c.points : points;
+        for(const p of candidates){
+          const colorScore=colorDistanceSq(p,c);
+          const spatialScore=((p.x-c.x)**2+(p.y-c.y)**2)*.02;
+          const local=regionVariance(p.x,p.y,5);
+          const texturePenalty=Math.min(local.variance,1800)*.08;
+          const score=colorScore+spatialScore+texturePenalty;
+          if(score<bestScore){
+            bestScore=score;
+            representative=p;
+          }
+        }
+        const local=regionVariance(representative.x,representative.y,7);
+        return {
+          x:Math.round(representative.x),
+          y:Math.round(representative.y),
+          r:local.r,
+          g:local.g,
+          b:local.b,
+          material:'auto',
+          weight:c.count
+        };
+      });
+
+    // Remove near-duplicates and points that are spatially too close.
+    picks.sort((a,b)=>b.weight-a.weight);
+    const filtered=[];
+    for(const pick of picks){
+      const duplicate=filtered.some(existing=>
+        colorDistanceSq(pick,existing)<260 &&
+        Math.hypot(pick.x-existing.x,pick.y-existing.y)<Math.min(sourceCanvas.width,sourceCanvas.height)*.12
+      );
+      if(!duplicate) filtered.push(pick);
+      if(filtered.length>=desired) break;
+    }
+
+    // Arrange broadly from upper-left to lower-right so numbering feels natural.
+    filtered.sort((a,b)=>{
+      const rowA=Math.round(a.y/(sourceCanvas.height/4));
+      const rowB=Math.round(b.y/(sourceCanvas.height/4));
+      if(rowA!==rowB) return rowA-rowB;
+      return a.x-b.x;
+    });
+
+    samples=filtered;
+    render();
+    updateUI();
+    exportStatus.textContent=`Auto Pick added ${samples.length} distinct color regions. Drag cards to refine the order.`;
+  }
+
+  function sampleAt(x,y){
+    if(!image) return;
+    x=Math.max(0,Math.min(canvas.width-1,Math.round(x)));
+    y=Math.max(0,Math.min(canvas.height-1,Math.round(y)));
+
+    // Average a small painted area rather than relying on one noisy pixel.
+    const radius=7;
+    const sx=Math.max(0,x-radius);
+    const sy=Math.max(0,y-radius);
+    const sw=Math.min(canvas.width-sx,radius*2+1);
+    const sh=Math.min(canvas.height-sy,radius*2+1);
+    const pixels=sourceCtx.getImageData(sx,sy,sw,sh).data;
+    let rr=0,gg=0,bb=0,count=0;
+    for(let i=0;i<pixels.length;i+=4){
+      if(pixels[i+3]<20) continue;
+      rr+=pixels[i]; gg+=pixels[i+1]; bb+=pixels[i+2]; count++;
+    }
+    samples.push({
+      x,y,
+      r:Math.round(rr/count),
+      g:Math.round(gg/count),
+      b:Math.round(bb/count),
+      material:'auto'
+    });
+    render();
+    updateUI();
+  }
+
+  canvas.addEventListener('click',e=>{
+    const rect=canvas.getBoundingClientRect();
+    sampleAt((e.clientX-rect.left)/zoom,(e.clientY-rect.top)/zoom);
+  });
+
+  canvas.addEventListener('mousemove',e=>{
+    if(!image) return;
+    const rect=canvas.getBoundingClientRect();
+    const x=(e.clientX-rect.left)/zoom;
+    const y=(e.clientY-rect.top)/zoom;
+    const sourceSize=18;
+    mctx.imageSmoothingEnabled=false;
+    mctx.clearRect(0,0,magnifier.width,magnifier.height);
+    mctx.drawImage(sourceCanvas,
+      x-sourceSize/2,y-sourceSize/2,sourceSize,sourceSize,
+      0,0,magnifier.width,magnifier.height);
+    mctx.strokeStyle='rgba(0,0,0,.8)';
+    mctx.lineWidth=1;
+    mctx.beginPath();
+    mctx.moveTo(magnifier.width/2,0);
+    mctx.lineTo(magnifier.width/2,magnifier.height);
+    mctx.moveTo(0,magnifier.height/2);
+    mctx.lineTo(magnifier.width,magnifier.height/2);
+    mctx.stroke();
+    magnifier.style.left=(e.clientX+18)+'px';
+    magnifier.style.top=(e.clientY+18)+'px';
+    magnifier.style.display='block';
+  });
+  canvas.addEventListener('mouseleave',()=>magnifier.style.display='none');
+
+  function updateUI(){
+    const hasImage=!!image;
+    const hasSamples=samples.length>0;
+    [zoomInBtn,zoomOutBtn,fitBtn,autoPickBtn].forEach(b=>b.disabled=!hasImage);
+    [undoBtn,clearBtn,exportPngBtn,printBtn,autoArrangeBtn,analysisToggleBtn].forEach(b=>b.disabled=!hasSamples);
+    countEl.textContent=`${samples.length} color${samples.length===1?'':'s'}`;
+    swatchesEl.innerHTML='';
+    samples.forEach((s,i)=>{
+      const hex=rgbToHex(s.r,s.g,s.b);
+      const [h,sl,l]=rgbToHsl(s.r,s.g,s.b);
+      const row=document.createElement('div');
+      row.className='swatch';
+      row.style.background=hex;
+      row.draggable=true;
+      row.dataset.index=String(i);
+      row.tabIndex=0;
+      row.innerHTML=`
+        <div class="num" style="color:${contrastColor(s.r,s.g,s.b)}">${i+1}</div>
+        <div class="swatch-info">
+          <b>${hex}</b><br>
+          ${recipeText(s)}
+        </div>
+        <div class="drag-handle" title="Drag to reorder" aria-label="Drag to reorder">☰</div>
+        <button title="Remove color" aria-label="Remove color">×</button>`;
+
+      const materialSelect=row.querySelector('.material-select');
+      materialSelect.addEventListener('mousedown', event=>event.stopPropagation());
+      materialSelect.addEventListener('dragstart', event=>event.stopPropagation());
+      materialSelect.addEventListener('change', event=>{
+        event.stopPropagation();
+        samples[i].material=event.target.value;
+        updateUI();
+      });
+
+      row.querySelector('button').onclick=(event)=>{
+        event.stopPropagation();
+        samples.splice(i,1);
+        render();
+        updateUI();
+      };
+
+      row.addEventListener('dragstart', event=>{
+        draggedSampleIndex=i;
+        row.classList.add('dragging');
+        event.dataTransfer.effectAllowed='move';
+        event.dataTransfer.setData('text/plain', String(i));
+      });
+
+      row.addEventListener('dragend', ()=>{
+        draggedSampleIndex=null;
+        row.classList.remove('dragging');
+        swatchesEl.querySelectorAll('.swatch').forEach(el=>{
+          el.classList.remove('drop-before','drop-after');
+        });
+      });
+
+      row.addEventListener('dragover', event=>{
+        event.preventDefault();
+        if(draggedSampleIndex===null || draggedSampleIndex===i) return;
+        event.dataTransfer.dropEffect='move';
+        const rect=row.getBoundingClientRect();
+        const before=event.clientY < rect.top + rect.height/2;
+        row.classList.toggle('drop-before', before);
+        row.classList.toggle('drop-after', !before);
+      });
+
+      row.addEventListener('dragleave', ()=>{
+        row.classList.remove('drop-before','drop-after');
+      });
+
+      row.addEventListener('drop', event=>{
+        event.preventDefault();
+        row.classList.remove('drop-before','drop-after');
+        if(draggedSampleIndex===null || draggedSampleIndex===i) return;
+
+        const rect=row.getBoundingClientRect();
+        const before=event.clientY < rect.top + rect.height/2;
+        let targetIndex=i + (before ? 0 : 1);
+
+        const moved=samples.splice(draggedSampleIndex,1)[0];
+        if(draggedSampleIndex < targetIndex) targetIndex--;
+        samples.splice(targetIndex,0,moved);
+
+        draggedSampleIndex=null;
+        render();
+        updateUI();
+      });
+
+      row.addEventListener('keydown', event=>{
+        if(!event.altKey || (event.key!=='ArrowUp' && event.key!=='ArrowDown')) return;
+        event.preventDefault();
+        const nextIndex=event.key==='ArrowUp' ? i-1 : i+1;
+        if(nextIndex<0 || nextIndex>=samples.length) return;
+
+        const moved=samples.splice(i,1)[0];
+        samples.splice(nextIndex,0,moved);
+        render();
+        updateUI();
+
+        requestAnimationFrame(()=>{
+          const nextRow=swatchesEl.querySelector(`.swatch[data-index="${nextIndex}"]`);
+          if(nextRow) nextRow.focus();
+        });
+      });
+
+      swatchesEl.appendChild(row);
+    });
+  }
+
+  paletteSelect.addEventListener('change', updateUI);
+  sceneSelect.addEventListener('change', updateUI);
+
+  analysisToggleBtn.onclick=()=>{
+    document.body.classList.toggle('show-analysis');
+    analysisToggleBtn.textContent=document.body.classList.contains('show-analysis')?'Hide analysis':'Show analysis';
+  };
+
+  autoPickBtn.onclick=()=>{
+    const replacing=samples.length>0;
+    if(replacing && !confirm('Auto Pick will replace the current sampled colors. Continue?')) return;
+    autoPickBtn.disabled=true;
+    const originalText=autoPickBtn.textContent;
+    autoPickBtn.textContent='Scanning image…';
+    exportStatus.textContent='Finding large, distinct color regions…';
+    setTimeout(()=>{
+      try{
+        autoPickColors();
+      }catch(error){
+        console.error(error);
+        exportStatus.textContent='';
+        alert('Auto Pick could not analyze this image.');
+      }finally{
+        autoPickBtn.textContent=originalText;
+        autoPickBtn.disabled=false;
+      }
+    },30);
+  };
+
+  autoArrangeBtn.onclick=()=>{
+    samples.sort((a,b)=>{
+      const A=colorStats(a.r,a.g,a.b);
+      const B=colorStats(b.r,b.g,b.b);
+      // Group first by hue family, then from light to dark.
+      if(A.h!==B.h) return A.h-B.h;
+      return B.l-A.l;
+    });
+    render();
+    updateUI();
+  };
+
+  undoBtn.onclick=()=>{samples.pop();render();updateUI()};
+  clearBtn.onclick=()=>{if(confirm('Remove all color samples?')){samples=[];render();updateUI()}};
+  zoomInBtn.onclick=()=>{zoom=Math.min(3,zoom*1.2);applyZoom()};
+  zoomOutBtn.onclick=()=>{zoom=Math.max(.1,zoom/1.2);applyZoom()};
+  fitBtn.onclick=fitCanvas;
+  window.addEventListener('resize',()=>{if(image && zoom<=1) fitCanvas()});
+
+  function wrapText(context,text,x,y,maxWidth,lineHeight){
+    const words=text.split(' ');
+    let line='',lines=[];
+    for(const word of words){
+      const test=line+word+' ';
+      if(context.measureText(test).width>maxWidth && line){
+        lines.push(line.trim()); line=word+' ';
+      }else line=test;
+    }
+    lines.push(line.trim());
+    lines.forEach((l,i)=>context.fillText(l,x,y+i*lineHeight));
+    return lines.length;
+  }
+
+  function drawPageHeader(ctx, title, subtitle, pageW, margin){
+    ctx.fillStyle='#111';
+    ctx.textAlign='left';
+    ctx.textBaseline='alphabetic';
+    ctx.font='800 44px Arial';
+    ctx.fillText(title,margin,72);
+    ctx.fillStyle='#555';
+    ctx.font='20px Arial';
+    ctx.fillText(subtitle,margin,104);
+    ctx.strokeStyle='#ddd';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(margin,126);
+    ctx.lineTo(pageW-margin,126);
+    ctx.stroke();
+  }
+
+  function makeSampleDotsPage(){
+    // Page 1: blank white placement map only.
+    const maxMapW=1450;
+    const maxMapH=1850;
+    const scale=Math.min(maxMapW/sourceCanvas.width,maxMapH/sourceCanvas.height,1);
+    const mapW=Math.round(sourceCanvas.width*scale);
+    const mapH=Math.round(sourceCanvas.height*scale);
+    const margin=80;
+    const headerH=145;
+    const pageW=mapW+margin*2;
+    const pageH=mapH+margin*2+headerH;
+
+    const page=document.createElement('canvas');
+    page.width=pageW;
+    page.height=pageH;
+    const p=page.getContext('2d');
+
+    p.fillStyle='#fff';
+    p.fillRect(0,0,pageW,pageH);
+    drawPageHeader(
+      p,
+      `${imageName} — Sample Dots`,
+      'Numbered colors positioned exactly where they were sampled from the reference image.',
+      pageW,
+      margin
+    );
+
+    const mapX=margin;
+    const mapY=headerH+margin;
+    p.strokeStyle='#d5d5d5';
+    p.lineWidth=2;
+    p.strokeRect(mapX,mapY,mapW,mapH);
+
+    const radius=Math.max(23,Math.round(Math.min(mapW,mapH)*0.033));
+    samples.forEach((s,i)=>{
+      const cx=mapX+s.x*scale;
+      const cy=mapY+s.y*scale;
+      p.fillStyle=`rgb(${s.r},${s.g},${s.b})`;
+      p.beginPath();
+      p.arc(cx,cy,radius,0,Math.PI*2);
+      p.fill();
+
+      p.fillStyle=contrastColor(s.r,s.g,s.b);
+      p.font=`800 ${Math.round(radius*.86)}px Arial`;
+      p.textAlign='center';
+      p.textBaseline='middle';
+      p.fillText(i+1,cx,cy+1);
+    });
+
+    return page;
+  }
+
+  function wrapCanvasText(ctx,text,x,y,maxWidth,lineHeight){
+    const words=String(text).split(/\s+/);
+    const lines=[];
+    let line='';
+    words.forEach(word=>{
+      const test=line ? `${line} ${word}` : word;
+      if(ctx.measureText(test).width>maxWidth && line){
+        lines.push(line);
+        line=word;
+      }else{
+        line=test;
+      }
+    });
+    if(line) lines.push(line);
+    lines.forEach((value,index)=>ctx.fillText(value,x,y+index*lineHeight));
+    return lines.length;
+  }
+
+  function makeColorMixChartPage(){
+    // Page 2: compact multi-column recipe chart.
+    const margin=65;
+    const headerH=145;
+    const columns=3;
+    const gap=18;
+    const pageW=1600;
+    const cardW=Math.floor((pageW-margin*2-gap*(columns-1))/columns);
+    const cardH=150;
+    const rows=Math.ceil(samples.length/columns);
+    const pageH=Math.max(1050,headerH+margin*2+rows*(cardH+gap));
+
+    const page=document.createElement('canvas');
+    page.width=pageW;
+    page.height=pageH;
+    const p=page.getContext('2d');
+
+    p.fillStyle='#fff';
+    p.fillRect(0,0,pageW,pageH);
+    drawPageHeader(
+      p,
+      `${imageName} — Color Mix Chart`,
+      'Painter-aware starting mixtures. Fine-tune slightly for paint brand, opacity, surface, and drying shift.',
+      pageW,
+      margin
+    );
+
+    samples.forEach((s,i)=>{
+      const col=i%columns;
+      const row=Math.floor(i/columns);
+      const x=margin+col*(cardW+gap);
+      const y=headerH+margin+row*(cardH+gap);
+      const numberW=72;
+      const recipe=makePaintRecipe(s);
+      const parts=recipe.primary;
+
+      // Full card uses the sampled color.
+      p.fillStyle=`rgb(${s.r},${s.g},${s.b})`;
+      p.fillRect(x,y,cardW,cardH);
+
+      // Number panel gets a subtle translucent overlay for separation.
+      p.fillStyle='rgba(255,255,255,.16)';
+      p.fillRect(x,y,numberW,cardH);
+
+      // Vertical divider like the reference layout.
+      p.strokeStyle=contrastColor(s.r,s.g,s.b)==='#fff'
+        ? 'rgba(255,255,255,.88)'
+        : 'rgba(0,0,0,.65)';
+      p.lineWidth=3;
+      p.beginPath();
+      p.moveTo(x+numberW,y+18);
+      p.lineTo(x+numberW,y+cardH-18);
+      p.stroke();
+
+      const textColor=contrastColor(s.r,s.g,s.b);
+      p.fillStyle=textColor;
+      p.textAlign='center';
+      p.textBaseline='middle';
+      p.font='800 46px Arial';
+      p.fillText(i+1,x+numberW/2,y+cardH/2);
+
+      p.textAlign='center';
+      p.textBaseline='alphabetic';
+      p.font='700 24px Arial';
+
+      const recipeLines=parts.map(part=>`${part.pct}% ${part.name}`);
+      const lineHeight=28;
+      const totalH=recipeLines.length*lineHeight;
+      let textY=y+(cardH-totalH)/2+23;
+
+      recipeLines.forEach(line=>{
+        // Wrap unusually long pigment names without shrinking every card.
+        const used=wrapCanvasText(
+          p,
+          line,
+          x+numberW+(cardW-numberW)/2,
+          textY,
+          cardW-numberW-24,
+          lineHeight
+        );
+        textY+=used*lineHeight;
+      });
+    });
+
+    return page;
+  }
+
+  function makeGuideCanvas(){
+    // Kept for compatibility with existing preview/export functions.
+    return makeSampleDotsPage();
+  }
+
+  function closeExportPreview(){
+    exportModal.classList.remove('open');
+  }
+
+  function copyCanvas(source, target){
+    target.width = source.width;
+    target.height = source.height;
+    const targetContext = target.getContext('2d');
+    targetContext.clearRect(0,0,target.width,target.height);
+    targetContext.drawImage(source,0,0);
+  }
+
+  function showExportPreview(page1,page2,filename1,filename2){
+    currentExportCanvas=page1;
+    currentExportCanvas2=page2;
+    currentExportFilename=filename1;
+    currentExportFilename2=filename2;
+    copyCanvas(page1,exportPreviewCanvas);
+    copyCanvas(page2,exportPreviewCanvas2);
+    exportModal.classList.add('open');
+    exportStatus.textContent='Both export pages are ready.';
+  }
+
+  async function saveCanvasPng(canvasToSave,filename){
+    if(!canvasToSave) return;
+    const blob=await new Promise((resolve,reject)=>{
+      canvasToSave.toBlob(
+        value=>value?resolve(value):reject(new Error('PNG creation failed')),
+        'image/png'
+      );
+    });
+
+    if('showSaveFilePicker' in window){
+      try{
+        const handle=await window.showSaveFilePicker({
+          suggestedName:filename,
+          types:[{
+            description:'PNG image',
+            accept:{'image/png':['.png']}
+          }]
+        });
+        const writable=await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        exportStatus.textContent=`${filename} saved successfully.`;
+        return;
+      }catch(error){
+        if(error && error.name==='AbortError'){
+          exportStatus.textContent='Save canceled.';
+          return;
+        }
+      }
+    }
+
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.href=url;
+    link.download=filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),3000);
+  }
+
+  exportPngBtn.onclick=()=>{
+    if(!image || !samples.length){
+      alert('Add at least one color sample before exporting.');
+      return;
+    }
+
+    exportPngBtn.disabled=true;
+    const originalText=exportPngBtn.textContent;
+    exportPngBtn.textContent='Creating pages…';
+
+    try{
+      const page1=makeSampleDotsPage();
+      const page2=makeColorMixChartPage();
+      showExportPreview(
+        page1,
+        page2,
+        `${imageName||'color-guide'}-page-1-sample-dots.png`,
+        `${imageName||'color-guide'}-page-2-color-mix-chart.png`
+      );
+    }catch(error){
+      console.error(error);
+      alert('The export pages could not be created.');
+    }finally{
+      exportPngBtn.textContent=originalText;
+      exportPngBtn.disabled=false;
+    }
+  };
+
+  savePage1Btn.onclick=async()=>{
+    try{
+      await saveCanvasPng(currentExportCanvas,currentExportFilename);
+    }catch(error){
+      console.error(error);
+      alert('Page 1 could not be saved.');
+    }
+  };
+
+  savePage2Btn.onclick=async()=>{
+    try{
+      await saveCanvasPng(currentExportCanvas2,currentExportFilename2);
+    }catch(error){
+      console.error(error);
+      alert('Page 2 could not be saved.');
+    }
+  };
+
+  openPngBtn.onclick=()=>{
+    if(!currentExportCanvas) return;
+    const showingPage2=openPngBtn.dataset.page==='2';
+    if(showingPage2){
+      copyCanvas(currentExportCanvas,fullscreenCanvas);
+      openPngBtn.dataset.page='1';
+      openPngBtn.textContent='View Page 2';
+    }else{
+      copyCanvas(currentExportCanvas2,fullscreenCanvas);
+      openPngBtn.dataset.page='2';
+      openPngBtn.textContent='View Page 1';
+    }
+    fullscreenExport.classList.add('open');
+  };
+
+  closeFullscreenBtn.onclick=()=>fullscreenExport.classList.remove('open');
+  closeExportBtn.onclick=closeExportPreview;
+  exportModal.addEventListener('click',event=>{
+    if(event.target===exportModal) closeExportPreview();
+  });
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){
+      closeExportPreview();
+      fullscreenExport.classList.remove('open');
+    }
+  });
+
+  printBtn.onclick=()=>{
+    if(!image || !samples.length){
+      alert('Add at least one color sample before printing.');
+      return;
+    }
+
+    const page1=makeSampleDotsPage();
+    const page2=makeColorMixChartPage();
+    const url1=page1.toDataURL('image/png');
+    const url2=page2.toDataURL('image/png');
+    const printWindow=window.open('','_blank');
+
+    if(!printWindow){
+      alert('Please allow pop-ups to print or save the two-page PDF.');
+      return;
+    }
+
+    printWindow.document.write(`<!doctype html>
+      <html>
+      <head>
+        <title>${imageName} Paint Mix Guide</title>
+        <style>
+          html,body{margin:0;background:#fff}
+          .page{
+            width:100%;
+            min-height:100vh;
+            display:flex;
+            align-items:flex-start;
+            justify-content:center;
+            page-break-after:always;
+            break-after:page;
+          }
+          .page:last-child{
+            page-break-after:auto;
+            break-after:auto;
+          }
+          img{
+            display:block;
+            max-width:100%;
+            width:auto;
+            height:auto;
+          }
+          @page{size:auto;margin:0}
+        </style>
+      </head>
+      <body>
+        <section class="page"><img src="${url1}"></section>
+        <section class="page"><img src="${url2}"></section>
+        <script>
+          Promise.all(Array.from(document.images).map(img =>
+            img.complete ? Promise.resolve() : new Promise(resolve => img.onload=resolve)
+          )).then(() => window.print());
+        <\/script>
+      </body>
+      </html>`);
+    printWindow.document.close();
+  };
+
+  updateUI();
+})();
+</script>
+</body>
+</html>
